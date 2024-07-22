@@ -1,0 +1,216 @@
+;* Horizon NSDOS I/O routines. 
+;* Copyright 2024 Alexis Guma
+
+;* Input off of first serial and/or parallel port input.
+;* Output to first serial port and/or ScreenSplitter video display
+
+base	equ 	&h2000
+		org		base + &h0d ;* NSDOS entry point for chararter output
+		jmp		chout
+		org		base + &h10 ;* NSDOS entry point for character output
+		jmp		chin
+		org		base + &h13 ;* NSDOS entry point for I/O initialization
+		jmp		tinit
+		org		base + &h16 ;* NSDOS entry point for Ctrl-C detect
+		jmp		contc
+
+;* ScreenSplitter ROM subroutine entry points
+sspage	equ 	&he0 ;* 56k start location
+ssbase	equ		sspage*256
+ssinit	equ		ssbase+&h19
+ssprin	equ		ssbase+&h196
+ssflash	equ		ssbase+&h30a
+ssbsp	equ		ssbase+&h33b
+sscr	equ		ssbase+&h34e
+
+;* Main I/O routines go into x900 page offset
+		org base + &h0900
+
+;* Handle to the main display window region, should always be at origin so can be easily found
+mainwin db &h20
+		db &h00
+		db &h00
+		db &h26
+		db &h02
+		db &h00
+		db &h51
+		db &ha0
+		db &h01
+		db &h00
+		db &h00
+
+sswp	db sspage ;* ScreenSplitter base page for rom window package routines
+
+;* Horizon routine to handle keyboard input
+chin    ;* If we have a serial port character, get it and return
+     	in 3
+		ani 2
+		jrz chinpp
+		in 2 ;* got serial input, return it
+        jr chinok
+
+chinpp  ;* If we have input character on parallel port return it
+     	in 6
+		ani 2
+		jrz chin ;* No parallel either, go and check serial again
+		in 0 ;* got parallel input, reset port state and return character
+		push psw
+		mvi a,30h
+		out 6
+		pop psw
+
+chinok	ani &h7f ;* Have input character, mask it to 7 bit
+		;* Map backspace 08 to 5f that NDOS expects
+        cpi 08
+		rnz
+		mvi a,&h5f
+		ret
+
+;* Horizon routine to handle character output display
+chout   in 3
+		ani &h80
+		jrz lftst ;* No serial output connected, skip serial out
+
+		in 3 ;* See if serial out ready
+		ani 1
+		jrz chout ;* Serial out not ready, wait
+
+		;* NDOS 5f backspace sends 08 to serial port
+		mov a,b
+        cpi &h5f
+        jrnz chout3
+        mvi a,8 
+chout3	out 2
+
+        ;* Ignore linefeeds
+lftst	mov a,b
+		cpi 10
+		rz
+
+        ;* If ScreenSplitter not found, skip output to that display
+        lda ssfound
+		cpi 0
+		jrnz ssout
+		mov a,b ;* ScreenSplitter not found, skip display output
+        ret
+
+ssout   ;* ScreenSplitter found
+		push bc ;* NSDOS expects all registers to be preserved in this routine
+		push de
+		push hl
+		lxi hl,mainwin
+
+        ;* Special case for carriage return
+		mov a,b
+		cpi 13
+		jrz cr
+
+        ;* Special case for backspace
+        cpi &h5f
+		jrz bsp
+
+        ;* Special case for bell
+        cpi 7
+		jrz flash
+
+        ;* Call ScreenSplitter routine to output a regular character
+		lxi bc,sschar
+        stax bc
+		lxi de,1
+		call ssprin
+
+;* Restore registers the way NSDOS expects before returning
+restall	pop hl
+		pop de
+		pop bc
+		mov a,b
+		ret
+
+;* Call ScreenSplitter new line routine
+cr		call sscr+14 ;* Offset to skip code that does not return at column 0
+		call ssbase ;* Since we skipped the 0 check, we need to repaint the cursor
+		jr restall
+
+;* Call ScreenSplitter backspace routine
+bsp		call ssbsp
+		jr restall
+
+;* Flash screen for bell
+flash	call ssflash
+		jr restall
+
+;* Horizon I/O routine to detect Ctrl-C press
+contc	in 3
+		ani 2
+		xri 2
+		jrnz contcpp
+		in 2 ;* Have serial char, fetch it
+        jr contcin
+
+contcpp in 6 ;* No serial char, check parallel
+		ani 2
+		xri 2
+		rnz
+		in 0 ;* Have parallel char, fetch it and reset port
+		push psw
+		mvi a,30h
+		out 6
+		pop psw
+
+contcin	ani &h7f ;* Validate input char to see if it is Ctrl-C
+		cpi 3
+		stc
+		ret
+
+;* Startup initializion for Horizon I/O.
+tinit   xra a ;* Initialize the two serial ports and the parallel port
+		out 6
+		out 6
+		out 6
+		out 6
+		mvi a,&hce
+		out 3
+		mvi a,&hce
+		out 5
+		mvi a,&h37
+		out 3
+		mvi a,&h37
+		out 5
+		in 2
+		in 4
+		mvi a,&h30
+		out 6
+
+        ;* Check for presence of ScreenSplitter by looking for 2 expected characters in the rom
+        lxi hl,ssbase
+        mvi a,&h7e
+        cmp (hl)
+        jrnz msgout
+        inx hl
+        mvi a,&he6
+        cmp (hl)
+        jrnz msgout
+
+        ;* ScreenSplitter found, flag it as such
+        mvi a,1
+        sta ssfound
+
+        ;* Initialize the display to all blanks and return
+		mvi b,32
+		call ssinit
+
+        ;* Display NSDOS startup message
+msgout	lxi hl,startmsg
+		mvi c,19
+msgloop	mov b,m
+		xra a
+		call chout
+		inx hl
+		dcr c
+		jrnz msgloop
+		ret
+
+startmsg	db &h0d, &h0a, 'HORIZON DOS 4.0', &h0d, &h0a
+
+ssfound db 0    ;* Flag that indicates whether ScreenSplitter is present or not
+sschar	ds 1	;* ScreenSplitter output routine character passed in via memory
