@@ -24,13 +24,13 @@ import java.awt.GraphicsEnvironment;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
@@ -65,12 +65,11 @@ import javax.swing.JScrollPane;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
+import javax.swing.border.EmptyBorder;
 import javax.swing.colorchooser.AbstractColorChooserPanel;
 import javax.swing.colorchooser.ColorSelectionModel;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -99,6 +98,7 @@ public abstract class MainMenu {
     private static final String MENU_DISK_4 = "Disk 4";
     private static final String DRIVE_EMPTY = "Empty";
     private static final String MENU_CREATE_DISK = "Create Disk";
+    private static final String DISK_IMAGE_TYPE = "Northstar Disk Image";
 
     private static final String DENSITY_SSSD = "SS/SD";
     private static final String DENSITY_SSDD = "SS/DD";
@@ -120,8 +120,7 @@ public abstract class MainMenu {
     private static final String FONT_SIZE_MEDIUM = "Medium";
     private static final String FONT_SIZE_LARGE = "Large";
 
-    private static final String[] FONT_SIZES = { " 10 ", " 12 ", " 14 ", " 16 ", " 18 ", " 20 ", " 22 ", " 24 ", " 26 ",
-            " 28 ", " 30 ", " 32 ", " 36 " };
+    private static final Integer[] FONT_SIZES = { 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36 };
 
     private static final String ACTION_VIDEO_ADDRESS = "ScreenSplitter Address";
 
@@ -134,6 +133,32 @@ public abstract class MainMenu {
     private static final String RESET_BUTTON_TEXT = "Reset";
 
     private static Color colorOnEntry = null;
+    private static int fontSizeOnEntry = 0;
+    private static Font fontOnEntry = null;
+
+    private static final List<Font> availableFonts = new ArrayList<Font>();
+    private static final List<String> availableFontNames = new ArrayList<String>();
+    static {
+        // Get reasonable list of installed fixed width normal fonts
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        FontRenderContext frc = new FontRenderContext(null, RenderingHints.VALUE_TEXT_ANTIALIAS_DEFAULT,
+                RenderingHints.VALUE_FRACTIONALMETRICS_DEFAULT);
+
+        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lower = upper.toLowerCase();
+
+        for (Font font : ge.getAllFonts()) {
+            String name = font.getName().toLowerCase();
+            if ((name.indexOf("bold") < 0) && (name.indexOf("italic") < 0) && (name.indexOf("wing") < 0)) {
+                Rectangle2D uBounds = font.getStringBounds(upper, frc);
+                Rectangle2D lBounds = font.getStringBounds(lower, frc);
+                if (uBounds.getWidth() == lBounds.getWidth()) {
+                    availableFonts.add(font);
+                    availableFontNames.add(font.getName());
+                }
+            }
+        }
+    }
 
     /**
      * Generates the entire set of menu items and ties them to a new menu bar that we return. This can then be attached
@@ -179,9 +204,9 @@ public abstract class MainMenu {
         JCheckBox autoCommit = new JCheckBox(ACTION_AUTO_COMMIT);
         autoCommit.setToolTipText("Allow automatic commit of emulate disk image changes");
         autoCommit.setSelected(Horizon.getSettings().get(Settings.SYSTEM, Settings.AUTO_COMMIT, boolean.class));
-        autoCommit.addActionListener(new ActionListener() {
+        autoCommit.addMouseListener(new MouseAdapter() {
             @Override
-            public void actionPerformed(ActionEvent event) {
+            public void mouseClicked(MouseEvent event) {
                 Horizon.getSettings().put(Settings.SYSTEM, Settings.AUTO_COMMIT, autoCommit.isSelected());
                 MenuSelectionManager.defaultManager().clearSelectedPath();
             }
@@ -192,9 +217,9 @@ public abstract class MainMenu {
         JCheckBox fullSpeed = new JCheckBox(ACTION_FULL_SPEED);
         fullSpeed.setToolTipText("Choose between normal and full speed operation");
         fullSpeed.setSelected(Horizon.getSettings().get(Settings.SYSTEM, Settings.FULL_SPEED, boolean.class));
-        fullSpeed.addActionListener(new ActionListener() {
+        fullSpeed.addMouseListener(new MouseAdapter() {
             @Override
-            public void actionPerformed(ActionEvent event) {
+            public void mouseClicked(MouseEvent event) {
                 Horizon.getSettings().put(Settings.SYSTEM, Settings.FULL_SPEED, fullSpeed.isSelected());
                 Horizon.setFullSpeed(fullSpeed.isSelected());
                 MenuSelectionManager.defaultManager().clearSelectedPath();
@@ -205,9 +230,9 @@ public abstract class MainMenu {
         // Option to pause or un-pause the CPU
         JCheckBox paused = new JCheckBox(ACTION_PAUSED);
         paused.setToolTipText("Allows pausing the CPU execution");
-        paused.addActionListener(new ActionListener() {
+        paused.addMouseListener(new MouseAdapter() {
             @Override
-            public void actionPerformed(ActionEvent event) {
+            public void mouseClicked(MouseEvent event) {
                 Horizon.setPaused(paused.isSelected());
                 MenuSelectionManager.defaultManager().clearSelectedPath();
             }
@@ -218,7 +243,9 @@ public abstract class MainMenu {
         systemMenu.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                paused.setSelected(Horizon.isPaused());
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    paused.setSelected(Horizon.isPaused());
+                }
             }
         });
 
@@ -300,16 +327,13 @@ public abstract class MainMenu {
         commitPending.setForeground(Color.RED);
         commitPanel.add(commitPending);
 
-        // Add action when pressing the commit data button
-        commitPending.addMouseListener(new MouseAdapter() {
+        // Add action to the read only button to save a changed option for this drive.
+        readOnly.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                FloppyDrive floppy = Horizon.getFloppyController().getFloppy(driveNumber);
-                if (floppy.isCommitPending()) {
-                    floppy.commitChanges();
-                    commitPanel.setVisible(false);
-                    MenuSelectionManager.defaultManager().clearSelectedPath();
-                }
+                Horizon.getFloppyController().getFloppy(driveNumber).setWriteProtect(readOnly.isSelected());
+                Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVE_READONLY_MAP.get(driveNumber),
+                        readOnly.isSelected());
             }
         });
 
@@ -337,13 +361,16 @@ public abstract class MainMenu {
             }
         });
 
-        // Add action to the read only button to enable or disable writing to this drive.
-        readOnly.addActionListener(new ActionListener() {
+        // Add action when pressing the commit data button, saving any pending writes to this drive
+        commitPending.addMouseListener(new MouseAdapter() {
             @Override
-            public void actionPerformed(ActionEvent event) {
-                Horizon.getFloppyController().getFloppy(driveNumber).setWriteProtect(readOnly.isSelected());
-                Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVE_READONLY_MAP.get(driveNumber),
-                        readOnly.isSelected());
+            public void mouseClicked(MouseEvent event) {
+                FloppyDrive floppy = Horizon.getFloppyController().getFloppy(driveNumber);
+                if (floppy.isCommitPending()) {
+                    floppy.commitChanges();
+                    commitPanel.setVisible(false);
+                    MenuSelectionManager.defaultManager().clearSelectedPath();
+                }
             }
         });
 
@@ -355,44 +382,62 @@ public abstract class MainMenu {
     }
 
     /**
-     * Links a file chooser dialog to a floppy drive menu item.
+     * Links a file chooser dialog to a floppy drive menu item, allows mounting a drive image to that unit, or ejecting
+     * and leaving the drive empty.
      * 
      * @param driveNumber
-     *            which drive number to link to, 1 to 3.
+     *            which drive number to link to, 1 to 3 (or 4 for double density controllers)
      * @param menuItem
      *            the specific drive menu item to link to
      */
     private static final void addFileChooser(int driveNumber, JMenuItem fileChooserItem) {
+
+        // Create the file chooser dialog
+        UIManager.put("FileChooser.readOnly", Boolean.TRUE);
+        JFileChooser fileChooser = new JFileChooser();
+        if (fileChooserItem.getText() != DRIVE_EMPTY) {
+            File currentFile = new File(fileChooserItem.getText());
+            fileChooser.setSelectedFile(currentFile);
+        }
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fileChooser.setMultiSelectionEnabled(false);
+        fileChooser.setDragEnabled(false);
+        FileFilter fileFilter = new FileNameExtensionFilter(DISK_IMAGE_TYPE, FloppyDrive.FILE_EXTENSION);
+        fileChooser.setFileFilter(fileFilter);
+        fileChooser.setAcceptAllFileFilterUsed(false);
+        JButton emptyFileButton = new JButton("Eject");
+        fileChooser.setAccessory(emptyFileButton);
+
+        // Eject button removes any mounted data for this drive
+        emptyFileButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                fileChooser.setSelectedFile(null);
+                fileChooser.approveSelection();
+            }
+        });
+
+        // Put up file selection dialog when pressing drive button, mounting any selected drive image
+        // If any changes are pending, confirm that they will be lost unless committed.
         fileChooserItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                UIManager.put("FileChooser.readOnly", Boolean.TRUE);
-                JFileChooser fileChooser = new JFileChooser();
-                if (fileChooserItem.getText() != DRIVE_EMPTY) {
-                    File currentFile = new File(fileChooserItem.getText());
-                    fileChooser.setSelectedFile(currentFile);
-                }
-                fileChooser.setCurrentDirectory(Paths.get(".", "disks").toFile());
-                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                fileChooser.setMultiSelectionEnabled(false);
-                fileChooser.setDragEnabled(false);
-                FileFilter fileFilter = new FileNameExtensionFilter("Northstar Disk Image", FloppyDrive.FILE_EXTENSION);
-                fileChooser.setFileFilter(fileFilter);
-                fileChooser.setAcceptAllFileFilterUsed(false);
-                JButton emptyFileButton = new JButton("Eject");
-                fileChooser.setAccessory(emptyFileButton);
-                emptyFileButton.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent event) {
-                        fileChooser.setSelectedFile(null);
-                        fileChooser.approveSelection();
-                    }
-                });
-                switch (fileChooser.showOpenDialog(Horizon.getWorkspace().getMainFrame())) {
-                case JFileChooser.APPROVE_OPTION:
+                // If we have a drive image directory path from earlier, use it, else default to root path
+                String drivesPath = Horizon.getSettings().get(Settings.DRIVES, Settings.DRIVES_PATH);
+                fileChooser.setCurrentDirectory(Paths.get((drivesPath == null) ? "." : drivesPath).toFile());
+
+                // Show any selected previous file
+                String currentFile = Horizon.getSettings().get(Settings.DRIVES,
+                        Settings.DRIVE_FILE_MAP.get(driveNumber));
+                fileChooser.setSelectedFile(new File((currentFile == null) ? "" : currentFile));
+
+                // Eject only enabled if drive is mounted, otherwise disabled
+                emptyFileButton.setEnabled(Horizon.getFloppyController().getFloppy(driveNumber).getDiskData() != null);
+
+                // Put up the dialog and react to a valid selection
+                if (fileChooser.showOpenDialog(Horizon.getWorkspace().getMainFrame()) == JFileChooser.APPROVE_OPTION) {
                     File selectedFile = fileChooser.getSelectedFile();
-                    // If any pending writes, ask if user really means to
-                    // load a new image and discard those changes.
+                    // If any pending writes, ask if user really means to load a new image and discard those changes.
                     boolean reallySwitch = true;
                     if (Horizon.getFloppyController().getFloppy(driveNumber).isCommitPending()) {
                         int confirm = JOptionPane.showOptionDialog(Horizon.getWorkspace().getMainFrame(),
@@ -403,37 +448,46 @@ public abstract class MainMenu {
                             reallySwitch = false;
                         }
                     }
+
                     if (reallySwitch) {
                         String filePath;
                         if (selectedFile == null) {
+                            // No file selected, drive is empty
                             filePath = null;
-                        } else {
-                            filePath = selectedFile.getPath();
 
-                            // Convert to relative path if possible
+                        } else {
+                            // Mounting a drive with data, convert the path to relative if possible
                             try {
-                                String relativePath = Paths.get(System.getProperty("user.dir"))
-                                        .relativize(Paths.get(filePath)).toString();
-                                filePath = relativePath;
+                                filePath = Paths.get(System.getProperty("user.dir"))
+                                        .relativize(Paths.get(selectedFile.getPath())).toString();
                             } catch (Exception e) {
                                 // Can't be relative, keep absolute
+                                filePath = selectedFile.getPath();
                             }
                         }
 
+                        // Save directory path as the default for next time
+                        if (selectedFile != null) {
+                            Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVES_PATH,
+                                    selectedFile.getParentFile());
+                        }
+
+                        // Read and assign the disk data (if any) to this drive
                         int[] diskData = FloppyDrive.readDisk(filePath);
                         Horizon.getFloppyController().getFloppy(driveNumber).insertDisk(filePath, diskData);
                         Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVE_FILE_MAP.get(driveNumber), filePath);
                         Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVE_READONLY_MAP.get(driveNumber),
                                 Horizon.getFloppyController().getFloppy(driveNumber).isWriteProtect());
                     }
-                    break;
                 }
             }
         });
     }
 
     /**
-     * Add a menu choice to create a new empty disk image of the proper size and density
+     * Add a menu choice to create a new empty disk image of the proper size and density. This does not do anything more
+     * than create an image with all zero values of the appropriate size. A command, such as the NDOS IN command is then
+     * needed to create an empty file system.
      * 
      * @param type
      *            type of entry (SS/SD, SS/DD, DS/DD)
@@ -452,7 +506,7 @@ public abstract class MainMenu {
                 fileChooser.setCurrentDirectory(Paths.get(".", "disks").toFile());
                 fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                 fileChooser.setMultiSelectionEnabled(false);
-                FileFilter fileFilter = new FileNameExtensionFilter("Northstar Disk Image", FloppyDrive.FILE_EXTENSION);
+                FileFilter fileFilter = new FileNameExtensionFilter(DISK_IMAGE_TYPE, FloppyDrive.FILE_EXTENSION);
                 fileChooser.setFileFilter(fileFilter);
                 fileChooser.setAcceptAllFileFilterUsed(false);
                 switch (fileChooser.showSaveDialog(Horizon.getWorkspace().getMainFrame())) {
@@ -508,7 +562,7 @@ public abstract class MainMenu {
         JMenu screenMenu = new JMenu(MENU_DISPLAY_SCREEN);
         displayMenu.add(screenMenu);
 
-        // Add all available ScreenSplitter character sets
+        // Add all available ScreenSplitter character sets to selection
         JMenu charset = new JMenu(CHARACTER_SET);
         screenMenu.add(charset);
         ButtonGroup charsetGroup = new ButtonGroup();
@@ -531,12 +585,9 @@ public abstract class MainMenu {
         JMenu pixelSize = new JMenu(PIXEL_SIZE);
         screenMenu.add(pixelSize);
         ButtonGroup pixelSizeGroup = new ButtonGroup();
-        JRadioButton smallSize = getPixelSizeSelectionButton(pixelSizeGroup, 1, FONT_SIZE_SMALL);
-        JRadioButton mediumSize = getPixelSizeSelectionButton(pixelSizeGroup, 2, FONT_SIZE_MEDIUM);
-        JRadioButton largeSize = getPixelSizeSelectionButton(pixelSizeGroup, 3, FONT_SIZE_LARGE);
-        pixelSize.add(smallSize);
-        pixelSize.add(mediumSize);
-        pixelSize.add(largeSize);
+        pixelSize.add(getPixelSizeSelectionButton(pixelSizeGroup, 1, FONT_SIZE_SMALL));
+        pixelSize.add(getPixelSizeSelectionButton(pixelSizeGroup, 2, FONT_SIZE_MEDIUM));
+        pixelSize.add(getPixelSizeSelectionButton(pixelSizeGroup, 3, FONT_SIZE_LARGE));
 
         // Options for the console display
         JMenu consoleMenu = new JMenu(MENU_DISPLAY_CONSOLE);
@@ -554,20 +605,6 @@ public abstract class MainMenu {
 
         // Allow option to select console font size
         consoleMenu.add(addFontSizeSelection());
-
-        // Select initially selected pixel size based on previous settings
-        int selectedPixelSize = Horizon.getSettings().get(Settings.WINDOW, Settings.PIXELSIZE, int.class);
-        switch (selectedPixelSize) {
-        case 1:
-            smallSize.setSelected(true);
-            break;
-        case 3:
-            largeSize.setSelected(true);
-            break;
-        default:
-            mediumSize.setSelected(true);
-            break;
-        }
 
         // Option to select memory range for ScreenSplitter board. Default is highest, 56k
         // This must match whatever OS output logic is set up for, as well as an BASIC code.
@@ -606,12 +643,26 @@ public abstract class MainMenu {
 
         // When hovering over a graphics character name, change the entire display screen to showing all of the
         // characters for that set. When we leave the button in any way, restore the display back.
-        charsetButton.addMouseListener(new MouseListener() {
+        charsetButton.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {}
-
-            @Override
-            public void mousePressed(MouseEvent e) {}
+            public void mouseClicked(MouseEvent e) {
+                // If clicked on character set, save it as the new default.
+                if (Horizon.getScreenSplitter().loadCharset(charsetName)) {
+                    Horizon.getSettings().put(Settings.WINDOW, Settings.CHARSET, charsetName);
+                } else {
+                    // Invalid selection, set back to last known good button
+                    String selectedCharset = Horizon.getSettings().get(Settings.WINDOW, Settings.CHARSET);
+                    Enumeration<AbstractButton> buttons = charsetGroup.getElements();
+                    while (buttons.hasMoreElements()) {
+                        AbstractButton button = buttons.nextElement();
+                        if (button.getName().equals(selectedCharset)) {
+                            button.setSelected(true);
+                            break;
+                        }
+                    }
+                }
+                MenuSelectionManager.defaultManager().clearSelectedPath();
+            }
 
             @Override
             public void mouseReleased(MouseEvent e) {
@@ -628,35 +679,13 @@ public abstract class MainMenu {
 
             @Override
             public void mouseExited(MouseEvent e) {
-                // Existing the character set, restore back to the original and show the normal screen again
+                // Exiting the character set choice, restore back to the original and show the normal screen again
                 Horizon.getScreenSplitter().setChangingCharset(false);
                 String origCharsetName = Horizon.getSettings().get(Settings.WINDOW, Settings.CHARSET);
                 Horizon.getScreenSplitter().loadCharset(origCharsetName);
             }
         });
 
-        // Add listener to this button so that it can change the current character set
-        charsetButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                if (Horizon.getScreenSplitter().loadCharset(charsetName)) {
-                    Horizon.getSettings().put(Settings.WINDOW, Settings.CHARSET, charsetName);
-                } else {
-                    // Invalid selection, set back to last known good button
-                    String selectedCharset = Horizon.getSettings().get(Settings.WINDOW, Settings.CHARSET);
-                    Enumeration<AbstractButton> buttons = charsetGroup.getElements();
-                    while (buttons.hasMoreElements()) {
-                        AbstractButton button = buttons.nextElement();
-                        if (button.getName().equals(selectedCharset)) {
-                            button.setSelected(true);
-                            break;
-                        }
-                    }
-                }
-                MenuSelectionManager.defaultManager().clearSelectedPath();
-
-            }
-        });
         return charsetButton;
     }
 
@@ -693,10 +722,10 @@ public abstract class MainMenu {
                     Horizon.getScreenSplitter().setBackground(chooser.getColor());
                     break;
                 case Settings.CONSOLE_FG:
-                    Horizon.getWorkspace().getTextConsole().setForeground(chooser.getColor());
+                    Horizon.getTextConsole().setForeground(chooser.getColor());
                     break;
                 case Settings.CONSOLE_BG:
-                    Horizon.getWorkspace().getTextConsole().setBackground(chooser.getColor());
+                    Horizon.getTextConsole().setBackground(chooser.getColor());
                     break;
                 }
             }
@@ -724,10 +753,10 @@ public abstract class MainMenu {
                     Horizon.getScreenSplitter().setBackground(colorOnEntry);
                     break;
                 case Settings.CONSOLE_FG:
-                    Horizon.getWorkspace().getTextConsole().setForeground(colorOnEntry);
+                    Horizon.getTextConsole().setForeground(colorOnEntry);
                     break;
                 case Settings.CONSOLE_BG:
-                    Horizon.getWorkspace().getTextConsole().setBackground(colorOnEntry);
+                    Horizon.getTextConsole().setBackground(colorOnEntry);
                     break;
                 }
                 MenuSelectionManager.defaultManager().clearSelectedPath();
@@ -773,11 +802,11 @@ public abstract class MainMenu {
                                     break;
                                 case Settings.CONSOLE_FG:
                                     defaultColor = Settings.DEFAULT_CONSOLE_FG;
-                                    Horizon.getWorkspace().getTextConsole().setForeground(defaultColor);
+                                    Horizon.getTextConsole().setForeground(defaultColor);
                                     break;
                                 case Settings.CONSOLE_BG:
                                     defaultColor = Settings.DEFAULT_CONSOLE_BG;
-                                    Horizon.getWorkspace().getTextConsole().setBackground(defaultColor);
+                                    Horizon.getTextConsole().setBackground(defaultColor);
                                     break;
                                 }
 
@@ -809,24 +838,26 @@ public abstract class MainMenu {
         colorSelectionItem.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                colorOnEntry = null;
-                switch (chooser.getName()) {
-                case Settings.SCREEN_FG:
-                    colorOnEntry = Horizon.getScreenSplitter().getForeground();
-                    break;
-                case Settings.SCREEN_BG:
-                    colorOnEntry = Horizon.getScreenSplitter().getBackground();
-                    break;
-                case Settings.CONSOLE_FG:
-                    colorOnEntry = Horizon.getWorkspace().getTextConsole().getForeground();
-                    break;
-                case Settings.CONSOLE_BG:
-                    colorOnEntry = Horizon.getWorkspace().getTextConsole().getBackground();
-                    break;
-                }
-                if (colorOnEntry != null) {
-                    ColorSelectionModel selectionModel = chooser.getSelectionModel();
-                    selectionModel.setSelectedColor(colorOnEntry);
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    colorOnEntry = null;
+                    switch (chooser.getName()) {
+                    case Settings.SCREEN_FG:
+                        colorOnEntry = Horizon.getScreenSplitter().getForeground();
+                        break;
+                    case Settings.SCREEN_BG:
+                        colorOnEntry = Horizon.getScreenSplitter().getBackground();
+                        break;
+                    case Settings.CONSOLE_FG:
+                        colorOnEntry = Horizon.getTextConsole().getForeground();
+                        break;
+                    case Settings.CONSOLE_BG:
+                        colorOnEntry = Horizon.getTextConsole().getBackground();
+                        break;
+                    }
+                    if (colorOnEntry != null) {
+                        ColorSelectionModel selectionModel = chooser.getSelectionModel();
+                        selectionModel.setSelectedColor(colorOnEntry);
+                    }
                 }
             }
         });
@@ -835,12 +866,12 @@ public abstract class MainMenu {
     }
 
     /**
-     * Allows picking between two pixel size options for the video window, currently only single or double sized.
+     * Allows picking between three pixel size options for the video window: small, medium, or large
      * 
      * @param pixelSizeGroup
      *            the group the radio buttons will be managed by
      * @param size
-     *            the size this button chooses, either 1 or 2
+     *            the size this button chooses, 1, 2, or 3
      * @return the button we can put on the menu to include this option
      */
     private static final JRadioButton getPixelSizeSelectionButton(ButtonGroup pixelSizeGroup, int sizeNumber,
@@ -850,15 +881,21 @@ public abstract class MainMenu {
         JRadioButton pixelSizeButton = new JRadioButton(sizeText);
         pixelSizeGroup.add(pixelSizeButton);
 
+        // If this is the initial saved size, then select it in the list
+        int selectedPixelSize = Horizon.getSettings().get(Settings.WINDOW, Settings.PIXELSIZE, int.class);
+        if (selectedPixelSize == sizeNumber) {
+            pixelSizeButton.setSelected(true);
+        }
+
         // Add listener to this button so that it can change the size
-        pixelSizeButton.addActionListener(new ActionListener() {
+        pixelSizeButton.addMouseListener(new MouseAdapter() {
             @Override
-            public void actionPerformed(ActionEvent event) {
+            public void mouseClicked(MouseEvent e) {
                 Horizon.getSettings().put(Settings.WINDOW, Settings.PIXELSIZE, sizeNumber);
                 boolean consoleOut = (!Horizon.getScreenSplitter().isVisible());
                 Horizon.getScreenSplitter().resize(sizeNumber);
-                int consoleFontSize = Horizon.getWorkspace().getTextConsole().getMatchingFontSize();
-                Horizon.getWorkspace().getTextConsole().setFontSize(consoleFontSize);
+                int consoleFontSize = Horizon.getTextConsole().getMatchingFontSize();
+                Horizon.getTextConsole().setFontSize(consoleFontSize);
                 if (consoleOut) {
                     Horizon.getWorkspace().displayScreenSplitter();
                     Horizon.getWorkspace().displayConsole();
@@ -909,11 +946,7 @@ public abstract class MainMenu {
         });
 
         // Add listener to alert user that any address change will only occur on restart
-        boardAddressButton.addFocusListener(new FocusListener() {
-
-            @Override
-            public void focusGained(FocusEvent e) {}
-
+        boardAddressButton.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
                 int currentAddress = Horizon.getScreenSplitter().getBoardAddress();
@@ -924,38 +957,24 @@ public abstract class MainMenu {
                             "Screen Spliter start address change", JOptionPane.INFORMATION_MESSAGE);
                 }
             }
-
         });
 
         return boardAddressButton;
     }
 
     /**
-     * Create the menu allowing selecting the font name to use for the text console
+     * Create the menu allowing selecting the font name to use for the text console. Various listeners added to allow us
+     * to dynamically update the text window with the currently hovered over entry, showing what the results would look
+     * like if the choice is made permanent.
      * 
      * @return the menu containing the font name selection menu
      */
     private static JMenu addFontNameSelection() {
         JMenu consoleFontName = new JMenu("Font Name");
 
-        // Get list of installed fixed width normal fonts
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        List<String> fontNamesAsList = new ArrayList<String>();
-        FontRenderContext frc = new FontRenderContext(null, RenderingHints.VALUE_TEXT_ANTIALIAS_DEFAULT,
-                RenderingHints.VALUE_FRACTIONALMETRICS_DEFAULT);
-        for (Font font : ge.getAllFonts()) {
-            if (font.isPlain()) {
-                Rectangle2D iBounds = font.getStringBounds("i", frc);
-                Rectangle2D mBounds = font.getStringBounds("m", frc);
-                if (iBounds.getWidth() == mBounds.getWidth()) {
-                    fontNamesAsList.add(font.getName());
-                }
-            }
-        }
-        String[] fontNames = fontNamesAsList.toArray(new String[fontNamesAsList.size()]);
-
         // And assign the list of fonts to the selection list
-        JList<String> fontSelector = new JList<>(fontNames);
+        JList<String> fontSelector = new JList<>(availableFontNames.toArray(new String[availableFontNames.size()]));
+        fontSelector.setBorder(new EmptyBorder(0, 10, 0, 10));
         JScrollPane fontScrollPane = new JScrollPane(fontSelector);
         consoleFontName.add(fontScrollPane);
 
@@ -963,23 +982,56 @@ public abstract class MainMenu {
         consoleFontName.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                String currentFontName = Horizon.getWorkspace().getTextConsole().getFont().getName();
-                for (int fontNameIndex = 0; fontNameIndex < fontNames.length; fontNameIndex++) {
-                    if (fontNames[fontNameIndex].equals(currentFontName)) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    fontOnEntry = Horizon.getTextConsole().getFont();
+                    int fontNameIndex = availableFontNames.indexOf(fontOnEntry.getName());
+                    if (fontNameIndex >= 0) {
                         fontSelector.setSelectedIndex(fontNameIndex);
                         fontSelector.ensureIndexIsVisible(fontNameIndex);
                     }
                 }
-
             }
         });
 
-        // React to chosen a different font name
-        fontSelector.addListSelectionListener(new ListSelectionListener() {
+        // As we move among the fonts, immediately show what they would look like in the text console
+        // This is not made the new default unless that value is clicked on and selected.
+        fontSelector.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
-            public void valueChanged(ListSelectionEvent e) {
-                String fontName = fontNames[fontSelector.getSelectedIndex()];
-                Horizon.getWorkspace().getTextConsole().setFontName(fontName);
+            public void mouseMoved(MouseEvent e) {
+                // As we move over the list of sizes, change the size of the text console.
+                String hoverFontName = fontSelector.getModel().getElementAt(fontSelector.locationToIndex(e.getPoint()));
+                String consoleFontName = Horizon.getTextConsole().getFont().getName();
+                if (!hoverFontName.equals(consoleFontName)) {
+                    int fontNameIndex = availableFontNames.indexOf(hoverFontName);
+                    Font hoverFont = availableFonts.get(fontNameIndex)
+                            .deriveFont((float) Horizon.getTextConsole().getFont().getSize());
+                    Horizon.getTextConsole().setFont(hoverFont);
+                }
+            }
+        });
+
+        // Click on a font setting is the new default, if just leaving, restore active display back to default
+        fontSelector.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                // Save font name change when we actively select a new font
+                int newFontIndex = fontSelector.getSelectedIndex();
+                if (newFontIndex >= 0) {
+                    String newFontName = fontSelector.getSelectedValue();
+                    if (!newFontName.equals(fontOnEntry.getName())) {
+                        Font newFont = availableFonts.get(availableFontNames.indexOf(newFontName))
+                                .deriveFont((float) Horizon.getTextConsole().getFont().getSize());
+                        Horizon.getTextConsole().setFont(newFont);
+                        Horizon.getSettings().put(Settings.WINDOW, Settings.CONSOLE_FONT_NAME, newFontName);
+                        MenuSelectionManager.defaultManager().clearSelectedPath();
+                    }
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                // On exit, restore default back
+                Horizon.getTextConsole().setFont(fontOnEntry);
             }
         });
 
@@ -987,7 +1039,9 @@ public abstract class MainMenu {
     }
 
     /**
-     * Create the menu allowing selecting the font size to use for the text console
+     * Create the menu allowing selecting the font size to use for the text console. Various listeners added to allow us
+     * to dynamically update the text window with the currently hovered over entry, showing what the results would look
+     * like if the choice is made permanent.
      * 
      * @return the menu containing the font size selection menu
      */
@@ -995,35 +1049,61 @@ public abstract class MainMenu {
         JMenu consoleFontSize = new JMenu("Font Size");
 
         // Add a list of fonts sizes for the text console to choose from
-        JList<String> fontSize = new JList<>(FONT_SIZES);
+        JList<Integer> fontSize = new JList<>(FONT_SIZES);
+        fontSize.setBorder(new EmptyBorder(0, 10, 0, 10));
         consoleFontSize.add(fontSize);
 
         // Listener to set the current font size when the list is brought up
         consoleFontSize.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                Font consoleFont = Horizon.getWorkspace().getTextConsole().getFont();
-                for (int fontSizeIndex = 0; fontSizeIndex < FONT_SIZES.length; fontSizeIndex++) {
-                    if (FONT_SIZES[fontSizeIndex].trim().equals(String.valueOf(consoleFont.getSize()))) {
-                        fontSize.setSelectedIndex(fontSizeIndex);
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    fontSizeOnEntry = Horizon.getTextConsole().getFont().getSize();
+                    for (int fontSizeIndex = 0; fontSizeIndex < FONT_SIZES.length; fontSizeIndex++) {
+                        if (FONT_SIZES[fontSizeIndex].equals(fontSizeOnEntry)) {
+                            fontSize.setSelectedIndex(fontSizeIndex);
+                        }
                     }
                 }
-
             }
         });
 
-        // React to font size changes by applying them immediately to the text console window
-        fontSize.addListSelectionListener(new ListSelectionListener() {
+        // As we move among the sizes, immediately show what they would look like in the text console
+        // This is not made the new default unless that value is clicked on and selected.
+        fontSize.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
-            public void valueChanged(ListSelectionEvent e) {
-                String sizeValue = fontSize.getSelectedValue();
-                try {
-                    int newSize = Integer.valueOf(((String) sizeValue).trim());
-                    Horizon.getWorkspace().getTextConsole().setFontSize(newSize);
-                } catch (NumberFormatException nfe) {
-                    // Should not happen, but ignore if it does
+            public void mouseMoved(MouseEvent e) {
+                // As we move over the list of sizes, change the size of the text console.
+                int hoverSize = fontSize.getModel().getElementAt(fontSize.locationToIndex(e.getPoint()));
+                if (hoverSize > 0) {
+                    int consoleSize = Horizon.getTextConsole().getFont().getSize();
+                    if (hoverSize != consoleSize) {
+                        Horizon.getTextConsole().setFontSize(hoverSize);
+                    }
                 }
             }
+        });
+
+        // Click on a size setting is the new default, if just leaving, restore active display back to default
+        fontSize.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                // Clicked on setting, make it new default if it differs from current one
+                int newSize = fontSize.getSelectedValue();
+                if (newSize > 0) {
+                    if (newSize != fontSizeOnEntry) {
+                        Horizon.getTextConsole().setFontSize(newSize);
+                        MenuSelectionManager.defaultManager().clearSelectedPath();
+                    }
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                // On exit without change, restore default back
+                Horizon.getTextConsole().setFontSize(fontSizeOnEntry);
+            }
+
         });
 
         return consoleFontSize;

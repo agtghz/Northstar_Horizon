@@ -58,6 +58,7 @@ public class Settings {
     public static final Color DEFAULT_SCREEN_BG = Color.BLACK;
 
     public static final String DRIVES = "DRIVES";
+    public static final String DRIVES_PATH = "DrivesPath";
     public static final String DRIVE1_FILE = "Drive1File";
     public static final String DRIVE2_FILE = "Drive2File";
     public static final String DRIVE3_FILE = "Drive3File";

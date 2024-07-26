@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import com.codingrodent.microprocessor.ProcessorException;
 import com.codingrodent.microprocessor.Z80.Z80Core;
 
+import net.guma.northstar.horizon.console.HorizonTextConsole;
 import net.guma.northstar.horizon.cpu.InputOutput;
 import net.guma.northstar.horizon.cpu.Memory;
 import net.guma.northstar.horizon.floppy.DDFloppyController;
@@ -118,6 +119,15 @@ public class Horizon {
      */
     public static Workspace getWorkspace() {
         return horizon.workspace;
+    }
+
+    /**
+     * Provides access to the text console
+     * 
+     * @return a handle to the text console window
+     */
+    public static HorizonTextConsole getTextConsole() {
+        return getWorkspace().getTextConsole();
     }
 
     /**

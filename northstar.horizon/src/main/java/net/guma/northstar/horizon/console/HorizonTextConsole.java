@@ -91,8 +91,18 @@ public class HorizonTextConsole {
     public void setFontName(String fontName) {
         Font oldFont = textData.getFont();
         Font newFont = new Font(fontName, oldFont.getStyle(), oldFont.getSize());
-        applyNewFont(newFont);
         Horizon.getSettings().put(Settings.WINDOW, Settings.CONSOLE_FONT_NAME, fontName);
+        setFont(newFont);
+    }
+
+    /**
+     * Changes the font of the console text window
+     * 
+     * @param font
+     *            is the new new font to apply
+     */
+    public void setFont(Font font) {
+        applyNewFont(font);
     }
 
     /**
