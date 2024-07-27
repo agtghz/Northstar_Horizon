@@ -38,6 +38,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
@@ -424,7 +425,10 @@ public abstract class MainMenu {
             public void actionPerformed(ActionEvent ae) {
                 // If we have a drive image directory path from earlier, use it, else default to root path
                 String drivesPath = Horizon.getSettings().get(Settings.DRIVES, Settings.DRIVES_PATH);
-                fileChooser.setCurrentDirectory(Paths.get((drivesPath == null) ? "." : drivesPath).toFile());
+                if (((drivesPath == null) || Files.notExists(Paths.get(drivesPath), new LinkOption[0]))) {
+                    drivesPath = ".";
+                }
+                fileChooser.setCurrentDirectory(Paths.get(drivesPath).toFile());
 
                 // Show any selected previous file
                 String currentFile = Horizon.getSettings().get(Settings.DRIVES,
@@ -466,10 +470,20 @@ public abstract class MainMenu {
                             }
                         }
 
-                        // Save directory path as the default for next time
+                        // Save base directory path as the default for next time
                         if (selectedFile != null) {
-                            Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVES_PATH,
-                                    selectedFile.getParentFile());
+                            String parentDir = selectedFile.getParentFile().toString();
+
+                            // Convert parent directory path to a relative one if possible
+                            try {
+                                String relativeDir = Paths.get(System.getProperty("user.dir"))
+                                        .relativize(Paths.get(parentDir)).toString();
+                                parentDir = relativeDir;
+                            } catch (Exception e) {
+                                // Can't be relative, keep absolute
+                            }
+
+                            Horizon.getSettings().put(Settings.DRIVES, Settings.DRIVES_PATH, parentDir);
                         }
 
                         // Read and assign the disk data (if any) to this drive
