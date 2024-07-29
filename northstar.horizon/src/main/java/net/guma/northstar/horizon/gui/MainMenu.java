@@ -36,14 +36,21 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 import javax.swing.AbstractButton;
@@ -577,26 +584,18 @@ public abstract class MainMenu {
         displayMenu.add(screenMenu);
 
         // Add all available ScreenSplitter character sets to selection
-        JMenu charset = new JMenu(CHARACTER_SET);
-        screenMenu.add(charset);
-        ButtonGroup charsetGroup = new ButtonGroup();
-        try {
-            List<String> charsetNames = Resources.getResourceAsList(Resources.RESOURCE_CHARSET_LIST);
-            for (String charsetName : charsetNames) {
-                charset.add(getCharsetSelectionButton(charsetGroup, charsetName));
-            }
-        } catch (Exception e) {
-            charset.add(getCharsetSelectionButton(charsetGroup, ScreenSplitter.DEFAULT_CHARSET));
-        }
+        screenMenu.add(addCharsetSelectionMenu());
 
         // Allow selecting background/foreground video window colors
         JMenu screenColorsMenu = new JMenu(MENU_COLORS);
         screenColorsMenu.add(addColorChooserMenu(ACTION_FOREGROUND, Settings.SCREEN_FG));
         screenColorsMenu.add(addColorChooserMenu(ACTION_BACKGROUND, Settings.SCREEN_BG));
+        addOutputSwitchListener(screenColorsMenu, false);
         screenMenu.add(screenColorsMenu);
 
         // Pixel size can be small, medium (default), or large
         JMenu pixelSize = new JMenu(PIXEL_SIZE);
+        addOutputSwitchListener(pixelSize, false);
         screenMenu.add(pixelSize);
         ButtonGroup pixelSizeGroup = new ButtonGroup();
         pixelSize.add(getPixelSizeSelectionButton(pixelSizeGroup, 1, FONT_SIZE_SMALL));
@@ -612,13 +611,18 @@ public abstract class MainMenu {
         consoleColorsMenu.add(addColorChooserMenu(ACTION_FOREGROUND, Settings.CONSOLE_FG));
         consoleColorsMenu.add(addColorChooserMenu(ACTION_BACKGROUND, Settings.CONSOLE_BG));
         consoleColorsMenu.add(consoleColorsMenu);
+        addOutputSwitchListener(consoleColorsMenu, true);
         consoleMenu.add(consoleColorsMenu);
 
         // Add option to select console font name
-        consoleMenu.add(addFontNameSelection());
+        JMenu fontSelectMenu = addFontNameSelection();
+        addOutputSwitchListener(fontSelectMenu, true);
+        consoleMenu.add(fontSelectMenu);
 
         // Allow option to select console font size
-        consoleMenu.add(addFontSizeSelection());
+        JMenu fontSizeSelectMenu = addFontSizeSelection();
+        addOutputSwitchListener(fontSizeSelectMenu, true);
+        consoleMenu.add(fontSizeSelectMenu);
 
         // Option to select memory range for ScreenSplitter board. Default is highest, 56k
         // This must match whatever OS output logic is set up for, as well as an BASIC code.
@@ -631,6 +635,73 @@ public abstract class MainMenu {
         }
 
         return displayMenu;
+    }
+
+    /**
+     * Adds a listener to a menu item that affects an output, so that we automatically switch to that output.
+     * 
+     * @param menu
+     *            the menu to tie the listener to
+     * @param switchToConsole
+     *            true if we want to switch to the text console if not already there, else false to switch to the video
+     *            window if not already there.
+     */
+    private static void addOutputSwitchListener(JMenu menu, boolean switchToConsole) {
+        menu.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                int currentTab = Horizon.getWorkspace().getTabbedPane().getSelectedIndex();
+                if (switchToConsole && (currentTab == 0)) {
+                    // On video tab, but want to show console
+                    Horizon.getWorkspace().getTabbedPane().setSelectedIndex(1);
+                } else if (!switchToConsole && (currentTab == 1)) {
+                    // On console, but want to show video tab
+                    Horizon.getWorkspace().getTabbedPane().setSelectedIndex(0);
+                }
+            }
+        });
+    }
+
+    /**
+     * Creates and returns a menu with a list of available ScreenSplitter character sets
+     * 
+     * @return menu with character set options
+     */
+    private static final JMenu addCharsetSelectionMenu() {
+        JMenu charset = new JMenu(CHARACTER_SET);
+        addOutputSwitchListener(charset, false);
+        ButtonGroup charsetGroup = new ButtonGroup();
+        try {
+            // Get access to resource directory containing the character sets
+            URI charsetsURI = Thread.currentThread().getContextClassLoader().getResource(Resources.RESOURCE_CHARSET_DIR)
+                    .toURI();
+
+            // Get path to the character set directory, support both jar file resources and running in an IDE
+            Path charsetsPath;
+            if (charsetsURI.getScheme().equals("jar")) {
+                Map<String, String> charsetNames = new HashMap<String, String>();
+                FileSystem fileSystem = FileSystems.newFileSystem(charsetsURI, charsetNames);
+                charsetsPath = fileSystem.getPath(Resources.RESOURCE_CHARSET_DIR);
+            } else {
+                charsetsPath = Paths.get(charsetsURI);
+            }
+
+            // Sort the list of files and add those with a .hex suffix to the list of available character sets
+            Object[] charsetFiles = Files.walk(charsetsPath, 1).toArray();
+            Arrays.sort(charsetFiles);
+            for (Object charsetPath : charsetFiles) {
+                String charsetName = ((Path) charsetPath).getFileName().toString();
+                if (charsetName.endsWith(".hex")) {
+                    charsetName = charsetName.substring(0, (charsetName.length() - 4));
+                    charset.add(getCharsetSelectionButton(charsetGroup, charsetName));
+                }
+
+            }
+        } catch (Exception e) {
+            // If any error occurs, use default character set
+            charset.add(getCharsetSelectionButton(charsetGroup, ScreenSplitter.DEFAULT_CHARSET));
+        }
+        return charset;
     }
 
     /**

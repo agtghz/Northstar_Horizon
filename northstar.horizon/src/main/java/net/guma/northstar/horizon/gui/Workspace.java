@@ -167,6 +167,15 @@ public class Workspace {
     }
 
     /**
+     * Provides access to the tabbed pain
+     * 
+     * @return the tabbed pane object
+     */
+    public JTabbedPane getTabbedPane() {
+        return tabbedPane;
+    }
+
+    /**
      * Creates the key listener that watches for key presses into the screen or console windows
      * 
      * @return the key listener

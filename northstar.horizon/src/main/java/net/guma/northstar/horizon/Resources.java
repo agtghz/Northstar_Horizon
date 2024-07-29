@@ -29,7 +29,6 @@ public abstract class Resources {
 
     public static final String RESOURCE_WINDOW_PACKAGE = "resources/screensplitter/firmware/WindowPackage.hex";
     public static final String RESOURCE_CHARSET_DIR = "resources/screensplitter/charsets/";
-    public static final String RESOURCE_CHARSET_LIST = RESOURCE_CHARSET_DIR + "Charsets.txt";
     public static final String RESOURCE_DD_CONTROLLER = "resources/floppy/DDController.hex";
     public static final String RESOURCE_SD_CONTROLLER = "resources/floppy/SDController.hex";
     public static final String RESOURCE_INFO = "resources/info/info.html";

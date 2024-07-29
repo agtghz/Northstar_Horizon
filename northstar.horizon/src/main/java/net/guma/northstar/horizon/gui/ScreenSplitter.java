@@ -301,18 +301,9 @@ public class ScreenSplitter extends JPanel {
 
         // Read in the current selected character set, graphics or scientific
         String charset = Horizon.getSettings().get(Settings.WINDOW, Settings.CHARSET);
-        charset = null;
+        // If none previously selected, use default
         if (charset == null) {
-            try {
-                List<String> charsetNames = Resources.getResourceAsList(Resources.RESOURCE_CHARSET_LIST);
-                if (charsetNames.size() == 0) {
-                    charset = DEFAULT_CHARSET;
-                } else {
-                    charset = charsetNames.get(0);
-                }
-            } catch (Exception e) {
-                charset = DEFAULT_CHARSET;
-            }
+            charset = DEFAULT_CHARSET;
             Horizon.getSettings().put(Settings.WINDOW, Settings.CHARSET, charset);
         }
         loadCharset(charset);
