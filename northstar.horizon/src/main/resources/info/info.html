@@ -1,5 +1,73 @@
 <html>
-<body style='text-align: center'>
-	<br> Information about this program to go here.
-	<br>
+
+<p>This application implements an emulator for the NorthStar Horizon
+	S-100 bus based Z-80 computer system from the late 1970's. This
+	includes support for the ScreenSplitter video card that was sold by
+	what was then Micro Diversions and later Scion corporation.</p>
+
+<p>You must have a boot disk image in drive 1 to be able to use the
+	emulator. If no image is mounted when booting, then the emulator will
+	automatically switch to a paused mode until you correct this and
+	reboot, or un-pause manually (with less than useful results).</p>
+
+<p>While you can boot any NorthStar compatible 'NSI' format disk,
+	unless you boot with one that has output support for the
+	ScreenSplitter, you will only be able to use the text console.</p>
+
+<p>
+	Here is some history about NorthStar computers: <a
+		href="https://en.wikipedia.org/wiki/North_Star_Computers">NorthStar
+		Computers History</a>
+</p>
+
+<p>
+	And some very basic information about the ScreenSplitter: <a
+		href="http://www.s100computers.com/Hardware%20Folder/Scion/History/History.htm">ScreenSplitter
+		History</a>
+</p>
+
+
+<h1>The menus</h1>
+
+<h2>System</h2>
+<menu>
+	<li>Reboot - reboots the emulator, loading and running whatever
+		boot disk is in unit 1.</li>
+	<li>Auto Commit Writes - if checked, any change to those disks
+		that are not marked ""Read Only" will occur immediately, so use
+		caution.</li>
+	<li>Full Speed - if checked, emulation will run as fast as
+		possible, otherwise it will run close to the 4mhz original Z-80
+		processor speed.</li>
+	<li>Paused - pauses execution if checked. This will be checked
+		automatically if you try to boot without a disk in unit 1.</li>
+</menu>
+
+<h2>Disks</h2>
+<menu>
+	<li>Disk 1 - is the boot disk, allowing you to mount or unmount a
+		disk image, as well as set if it is read/only or not.</li>
+	<li>Disk 2-3/4 - are other disk images. Only the double density
+		controller supports 4 drives, the single-density ends at 3.</li>
+	<li>Create Disk - allows creating a blank disk image of one of the
+		3 types: single-sided/single-density, single-sided/double-density or
+		double-sided/double-density.</li>
+</menu>
+
+<h2>Display</h2>
+<menu>
+	<li>ScreenSplitter - controls options for the ScreenSplitter
+		display, including which of two default character sets to use
+		(Graphics or Scientific), color options for the video window, as well
+		as which of three pixel sizes (small, medium, or large) to use.</li>
+	<li>Text Console - Allows changing the colors, font type and size
+		for the text console window</li>
+</menu>
+
+<h2>Help</h2>
+<menu>
+	<li>Contains basic information about the emulator, including this
+		dialog.</li>
+</menu>
+
 </html>

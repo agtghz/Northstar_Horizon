@@ -18,6 +18,8 @@ package net.guma.northstar.horizon.gui;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Desktop;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
@@ -60,6 +62,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -78,8 +81,11 @@ import javax.swing.colorchooser.AbstractColorChooserPanel;
 import javax.swing.colorchooser.ColorSelectionModel;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.text.PlainDocument;
 
 import net.guma.northstar.horizon.Horizon;
 import net.guma.northstar.horizon.Resources;
@@ -1211,14 +1217,49 @@ public abstract class MainMenu {
         infoItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
+                // First read the information resource
                 String infoContents;
                 try {
                     infoContents = Resources.getResourceAsString(Resources.RESOURCE_INFO);
                 } catch (Exception e) {
                     infoContents = "Unable to access info resource:" + e.getMessage();
                 }
-                JLabel infoLabel = new JLabel(infoContents);
-                JOptionPane.showMessageDialog(null, infoLabel, INFO, JOptionPane.PLAIN_MESSAGE);
+
+                // Create an editor pane to show the information
+                JEditorPane infoPane = new JEditorPane();
+                infoPane.setEditable(false);
+                infoPane.setContentType("text/html");
+                infoPane.setText(infoContents);
+                infoPane.setCaretPosition(0);
+                infoPane.getDocument().putProperty(PlainDocument.tabSizeAttribute, 3);
+
+                // Add hyperlink listener to allow opening links from the information dialog
+                infoPane.addHyperlinkListener(new HyperlinkListener() {
+                    @Override
+                    public void hyperlinkUpdate(HyperlinkEvent hle) {
+                        if (HyperlinkEvent.EventType.ACTIVATED.equals(hle.getEventType())) {
+                            Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+                            if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+                                try {
+                                    desktop.browse(hle.getURL().toURI());
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // And a scroll pane to allow moving through the lines of the document, with a size
+                // set to to be slightly smaller than the current size of the main window.
+                JScrollPane infoScrollPane = new JScrollPane(infoPane);
+                Dimension mainSize = Horizon.getWorkspace().getMainFrame().getSize();
+                Dimension infoSize = new Dimension((int) (mainSize.getWidth() / 1.2),
+                        (int) (mainSize.getHeight() / 1.2));
+                infoScrollPane.setPreferredSize(infoSize);
+
+                // Finally display the resulting dialog
+                JOptionPane.showMessageDialog(null, infoScrollPane, INFO, JOptionPane.PLAIN_MESSAGE);
             }
         });
 
