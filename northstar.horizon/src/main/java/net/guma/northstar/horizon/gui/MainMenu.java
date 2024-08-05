@@ -150,6 +150,8 @@ public abstract class MainMenu {
     private static int fontSizeOnEntry = 0;
     private static Font fontOnEntry = null;
 
+    private static JMenu disksMenu;
+
     private static final List<Font> availableFonts = new ArrayList<Font>();
     private static final List<String> availableFontNames = new ArrayList<String>();
     static {
@@ -284,14 +286,14 @@ public abstract class MainMenu {
      */
     private static JMenu addDiskMenuOptions(JMenu disk4) {
         // Disk selection menu
-        JMenu diskMenu = new JMenu(MENU_DISKS);
+        disksMenu = new JMenu(MENU_DISKS);
         JMenu disk1 = new JMenu(MENU_DISK_1);
         JMenu disk2 = new JMenu(MENU_DISK_2);
         JMenu disk3 = new JMenu(MENU_DISK_3);
 
-        diskMenu.add(disk1);
-        diskMenu.add(disk2);
-        diskMenu.add(disk3);
+        disksMenu.add(disk1);
+        disksMenu.add(disk2);
+        disksMenu.add(disk3);
 
         addDiskSelection(1, disk1);
         addDiskSelection(2, disk2);
@@ -302,7 +304,7 @@ public abstract class MainMenu {
         // needed to support the specific controller we are running with.
         if (disk4 != null) {
             disk4.setText(MENU_DISK_4);
-            diskMenu.add(disk4);
+            disksMenu.add(disk4);
             addDiskSelection(4, disk4);
         }
 
@@ -311,9 +313,16 @@ public abstract class MainMenu {
         createDiskMenu.add(addNewDiskSelection(DENSITY_SSSD, FloppyDrive.SSSD_SIZE));
         createDiskMenu.add(addNewDiskSelection(DENSITY_SSDD, FloppyDrive.SSDD_SIZE));
         createDiskMenu.add(addNewDiskSelection(DENSITY_DSDD, FloppyDrive.DSDD_SIZE));
-        diskMenu.add(createDiskMenu);
+        disksMenu.add(createDiskMenu);
 
-        return diskMenu;
+        return disksMenu;
+    }
+
+    /**
+     * @return the handle to the Disks menu item
+     */
+    public static JMenu getDisksMenu() {
+        return disksMenu;
     }
 
     /**

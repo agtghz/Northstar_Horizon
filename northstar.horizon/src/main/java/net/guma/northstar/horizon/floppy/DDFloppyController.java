@@ -192,10 +192,12 @@ public class DDFloppyController extends FloppyController {
                 // Set diagnostic body. Not implemented.
                 break;
             case 5:
-                // Turn on drive motors. Not needed, emulated to always be on.
+                // Turn on drive motors
+                setMotorsRunning();
                 break;
             case 6:
                 // Set up to write a sector
+                setMotorsRunning();
                 if (!floppy.beginWrite()) {
                     // Failure to set up for write, density mismatch, so return
                     // a value that will lead to an error message condition.
@@ -213,6 +215,7 @@ public class DDFloppyController extends FloppyController {
             if (readData) {
                 // Return back next byte we are reading from sector
                 retValue = floppy.readByte();
+                setMotorsRunning();
             } else {
                 // Return A, B, or C status
                 retValue = floppy.getStatus(paramReturned);

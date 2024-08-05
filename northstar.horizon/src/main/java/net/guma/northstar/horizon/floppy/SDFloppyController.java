@@ -120,6 +120,7 @@ public class SDFloppyController extends FloppyController {
             // ***************************************************************
             floppy.updateMachineState(false);
             floppy.writeByte(params);
+            setMotorsRunning();
             break;
         case 3:
             // ***************************************************************
@@ -206,6 +207,7 @@ public class SDFloppyController extends FloppyController {
                     System.exit(0);
                 }
                 floppy = floppies[currentFloppy];
+                setMotorsRunning();
                 break;
             case 1:
                 // Set up to write a sector
@@ -230,7 +232,6 @@ public class SDFloppyController extends FloppyController {
                 break;
             case 6:
                 // Reset controller, raise heads, stop motors
-                // floppy.initialize();
                 break;
             case 7:
                 // Load step direction (0=out, 1=in)
@@ -241,6 +242,7 @@ public class SDFloppyController extends FloppyController {
             if (readShiftReg == 1) {
                 // Return back next byte we are reading from sector
                 retValue = floppy.readByte();
+                setMotorsRunning();
             } else {
                 // Return either A or B status
                 retValue = floppy.getStatus(gateBStatus);

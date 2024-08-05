@@ -15,6 +15,10 @@
  */
 package net.guma.northstar.horizon.floppy;
 
+import java.awt.Color;
+
+import net.guma.northstar.horizon.gui.MainMenu;
+
 /**
  * Abstract floppy controller that is implemented by either the single-density or double-density controllers
  */
@@ -25,6 +29,10 @@ public abstract class FloppyController {
 
     protected FloppyDrive floppies[];
     protected int currentFloppy = 1;
+
+    protected boolean motorsRunning = false;
+    protected long motorsActivityTime = 0;
+    private static final int MOTOR_TIMEOUT = 5000;
 
     protected abstract FloppyDrive getNewFloppyDrive(int floppyNumber);
 
@@ -46,6 +54,32 @@ public abstract class FloppyController {
             }
         }
         return false;
+    }
+
+    /**
+     * Flag motors to continue running for at least 5 seconds more.
+     */
+    protected void setMotorsRunning() {
+        motorsRunning = true;
+        motorsActivityTime = System.currentTimeMillis();
+        MainMenu.getDisksMenu().setForeground(Color.RED);
+    }
+
+    /**
+     * If motor is running, and there has been no activity in 5 seconds on any drives, then shut down the motors.
+     */
+    public void timeoutDriveMotors() {
+        if (motorsRunning && (System.currentTimeMillis() > (motorsActivityTime + MOTOR_TIMEOUT))) {
+            motorsRunning = false;
+            MainMenu.getDisksMenu().setForeground(Color.BLACK);
+        }
+    }
+
+    /**
+     * @return true if drives are spinning, otherwise false
+     */
+    public boolean areDrivesRunning() {
+        return motorsRunning;
     }
 
     /**

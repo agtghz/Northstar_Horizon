@@ -313,6 +313,9 @@ public class Horizon {
                 screenSplitter.flipBlink();
                 blinkTime = System.currentTimeMillis();
             }
+            
+            // Shutdown drive motors after 5 seconds of inactivity.
+            getFloppyController().timeoutDriveMotors();
 
             // If pausing processor, sleep a bit and loop again
             if (paused) {
