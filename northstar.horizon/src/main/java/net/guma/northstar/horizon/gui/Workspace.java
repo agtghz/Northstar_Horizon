@@ -211,22 +211,7 @@ public class Workspace {
                 if (event.isControlDown()) {
                     if (event.getKeyChar() == 22) {
                         // Control-V Paste
-                        Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
-                        synchronized (Horizon.getInputOutput().getKeyBuffer()) {
-                            try {
-                                char[] chr = ((String) cb.getData(DataFlavor.stringFlavor)).toCharArray();
-                                for (int i = 0; i < chr.length; i++) {
-                                    Horizon.getInputOutput().getKeyBuffer().add(Integer.valueOf(chr[i]));
-                                }
-                                // If running at normal speed, temporarily run at full speed,
-                                // if not already, to allow paste to quickly finish. Once we
-                                // finish pasting we will restore back to the original speed.
-                                if (!Horizon.isFullSpeed()) {
-                                    pasteCountdown = chr.length;
-                                    Horizon.setFullSpeed(true);
-                                }
-                            } catch (Exception ex) {}
-                        }
+                        paste();
                     } else if (event.getKeyChar() == 3) {
                         // Control-C break, but only if not copying selection
                         if (!textConsole.isSelected()) {
@@ -244,6 +229,29 @@ public class Workspace {
             }
         };
         return keyListener;
+    }
+
+    /**
+     * Paste the clip-board text into the console by loading the type-ahead input buffer with that content. We
+     * temporarily speed up the emulation, if running at normal speed, so that the paste occurs as fast as possible.
+     */
+    public void paste() {
+        Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+        synchronized (Horizon.getInputOutput().getKeyBuffer()) {
+            try {
+                char[] chr = ((String) cb.getData(DataFlavor.stringFlavor)).toCharArray();
+                for (int i = 0; i < chr.length; i++) {
+                    Horizon.getInputOutput().getKeyBuffer().add(Integer.valueOf(chr[i]));
+                }
+                // If running at normal speed, temporarily run at full speed,
+                // if not already, to allow paste to quickly finish. Once we
+                // finish pasting we will restore back to the original speed.
+                if (!Horizon.isFullSpeed()) {
+                    pasteCountdown = chr.length;
+                    Horizon.setFullSpeed(true);
+                }
+            } catch (Exception ex) {}
+        }
     }
 
     /**
