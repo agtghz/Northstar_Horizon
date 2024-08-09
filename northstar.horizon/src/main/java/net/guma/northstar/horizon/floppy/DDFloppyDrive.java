@@ -497,6 +497,11 @@ public class DDFloppyDrive extends FloppyDrive {
                 setCommitPending(true);
             }
             break;
+            
+        case STATE_SECTOR_0:
+        case STATE_SECTOR_1:
+        case STATE_SECTOR_2:
+            break;
 
         default:
             Horizon.displayErrorMessage("Error in machine state during disk write: " + currentState);
