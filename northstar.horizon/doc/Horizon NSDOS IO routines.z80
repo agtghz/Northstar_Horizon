@@ -1,8 +1,10 @@
 ;* Horizon NSDOS I/O routines. 
 ;* Copyright 2024 Alexis Guma
 
+;* Horizon NSDOS 5.1 I/O routines. 
 ;* Input off of first serial and/or parallel port input.
 ;* Output to first serial port and/or ScreenSplitter video display
+;* Note that for space reasons this code uses Z80 extensions
 
 base	equ 	&h2000
 		org		base + &h0d ;* NSDOS entry point for chararter output
@@ -15,7 +17,7 @@ base	equ 	&h2000
 		jmp		contc
 
 ;* ScreenSplitter ROM subroutine entry points
-sspage	equ 	&he0 ;* 56k start location
+sspage	equ 	&he0
 ssbase	equ		sspage*256
 ssinit	equ		ssbase+&h19
 ssprin	equ		ssbase+&h196
@@ -23,23 +25,43 @@ ssflash	equ		ssbase+&h30a
 ssbsp	equ		ssbase+&h33b
 sscr	equ		ssbase+&h34e
 
+		;* Write with verify
+		org base + &h2b
+		db	1
+
 ;* Main I/O routines go into x900 page offset
 		org base + &h0900
 
-;* Handle to the main display window region, should always be at origin so can be easily found
-mainwin db &h20
-		db &h00
-		db &h00
-		db &h26
-		db &h02
-		db &h00
-		db &h51
-		db &ha0
-		db &h01
-		db &h00
-		db &h00
+;* Handle to the main display window region, should always be at base
+;* so BASIC programs can always get to it. (2901-290b)
+mainwin db &h20 ;* Status byte
+		db &h01 ;* Screen row of window top
+		db &h25 ;* Cursor line within window
+		db &h25 ;* Last window line number
+		db &h02 ;* Screen column of window left edge
+		db &h00 ;* Cursor column within window
+		db &h51 ;* Last window column number
+		db &ha0 ;* Cursor character
+		db &h01 ;* Scroll parameter
+		db &h00 ;* User hold process address, low byte
+		db &h00 ;* User hold process address, high byte
 
-sswp	db sspage ;* ScreenSplitter base page for rom window package routines
+;* Support routine for BASIC programs to call SS subroutines
+;* They need to fill any of the 4 bytes for bc and de needed, plus
+;* the subroutine address in high/low byte format before calling.
+;* hl always points to the one and only 11 byte SS window handle,
+;* so if more than one window is used it must be saved/restored.
+;* Entry = 290b(10507),
+;* b = 2910(10512), c = 290f(10511),
+;* d = 2913(10515), e = 2912(10514),
+;* sub hi = 2915(10517), sub low = 2916(10518)
+callss 	lxi hl, mainwin
+		lxi bc, 0
+		lxi de, 0
+		jmp retlbl
+
+ssfound db 0    ;* Flag that indicates whether ScreenSplitter is present or not
+sschar	ds 1	;* ScreenSplitter output routine character passed in via memory
 
 ;* Horizon routine to handle keyboard input
 chin    ;* If we have a serial port character, get it and return
@@ -64,7 +86,7 @@ chinok	ani &h7f ;* Have input character, mask it to 7 bit
         cpi 08
 		rnz
 		mvi a,&h5f
-		ret
+retlbl	ret
 
 ;* Horizon routine to handle character output display
 chout   in 3
@@ -95,13 +117,11 @@ lftst	mov a,b
         ret
 
 ssout   ;* ScreenSplitter found
-		push bc ;* NSDOS expects all registers to be preserved in this routine
-		push de
-		push hl
+		mov a,b
+		exx ;* NSDOS expects all registers to be preserved in this routine
 		lxi hl,mainwin
 
         ;* Special case for carriage return
-		mov a,b
 		cpi 13
 		jrz cr
 
@@ -120,9 +140,7 @@ ssout   ;* ScreenSplitter found
 		call ssprin
 
 ;* Restore registers the way NSDOS expects before returning
-restall	pop hl
-		pop de
-		pop bc
+restall	exx
 		mov a,b
 		ret
 
@@ -185,11 +203,11 @@ tinit   xra a ;* Initialize the two serial ports and the parallel port
         lxi hl,ssbase
         mvi a,&h7e
         cmp (hl)
-        jrnz msgout
+        rnz
         inx hl
         mvi a,&he6
         cmp (hl)
-        jrnz msgout
+        rnz
 
         ;* ScreenSplitter found, flag it as such
         mvi a,1
@@ -197,20 +215,4 @@ tinit   xra a ;* Initialize the two serial ports and the parallel port
 
         ;* Initialize the display to all blanks and return
 		mvi b,32
-		call ssinit
-
-        ;* Display NSDOS startup message
-msgout	lxi hl,startmsg
-		mvi c,19
-msgloop	mov b,m
-		xra a
-		call chout
-		inx hl
-		dcr c
-		jrnz msgloop
-		ret
-
-startmsg	db &h0d, &h0a, 'HORIZON DOS 4.0', &h0d, &h0a
-
-ssfound db 0    ;* Flag that indicates whether ScreenSplitter is present or not
-sschar	ds 1	;* ScreenSplitter output routine character passed in via memory
+		jmp ssinit
