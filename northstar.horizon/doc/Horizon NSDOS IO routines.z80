@@ -1,5 +1,5 @@
 ;* Horizon NSDOS I/O routines. 
-;* Copyright 2024 Alexis Guma
+;* Copyright 2025 Alexis Guma
 
 ;* Horizon NSDOS 5.1 I/O routines. 
 ;* Input off of first serial and/or parallel port input.
