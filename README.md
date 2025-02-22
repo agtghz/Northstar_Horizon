@@ -23,23 +23,29 @@ Included are two boot disk images, NSDOS51S_SS.NSI and NSDOS50D_SS.NSI, one sing
 Also included is a GAMES disk, containing one program, a reworking of the 1970's mainframe text-based Star Trek game, but fully using the ScreenSplitter interface and library package to present all systems, such as long and short range scanners, status report, etc. in individual windows at the same time, all updated automatically each turn. If you mount that disk on unit #2, you can run this program once you are at the North Star DOS prompt by typing the following:
 
 GO BASIC
+
 LOAD TREK,2
+
 RUN
 
 Finally in the Doc folder is a PDF of the original ScreenSplitter manual, a screen capture of the Star Trek game running, and the assembly code for the I/O routines that support the ScreenSplitter.
 
-The menus
+The menus:
+
 System
 *	Reboot - reboots the emulator, loading and running whatever boot disk is in unit 1.
 *	Auto Commit Writes - if checked, any change to those disks that are not marked ""Read Only" will occur immediately, so use caution.
 *	Full Speed - if checked, emulation will run as fast as possible, otherwise it will run close to the 4mhz original Z-80 processor speed.
 *	Paused - pauses execution if checked. This will be checked automatically if you try to boot without a disk in unit 1.
+  
 Disks (turns red until there is no disk activity for more than 5 seconds)
 *	Disk 1 - is the boot disk, allowing you to mount or unmount a disk image, as well as set if it is read/only or not.
 *	Disk 2-3/4 - are other disk images. Only the double density controller supports 4 drives, the single-density ends at 3.
 *	Create Disk - allows creating a blank disk image of one of the 3 types: single-sided/single-density, single-sided/double-density or double-sided/double-density.
+  
 Display
 *	ScreenSplitter - controls options for the ScreenSplitter display, including which of two default character sets to use (Graphics or Scientific), color options for the video window, as well as which of three pixel sizes (small, medium, or large) to use.
 *	Text Console - Allows changing the colors, font type and size for the text console window
+  
 Help
 *	Contains basic information about the emulator, including this dialog.
