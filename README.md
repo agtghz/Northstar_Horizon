@@ -6,13 +6,13 @@ Here is some history about NorthStar computers: https://en.wikipedia.org/wiki/No
 
 And some very basic information about the ScreenSplitter: http://www.s100computers.com/Hardware%20Folder/Scion/History/History.htm
 
-Assuming you have Maven installed, you can build the emulator from within the northstar.horizon directory like this:
+Assuming you have Maven installed, you can build the emulator from within the downloaded northstar.horizon directory like this:
 
 mvn clean package
 
 Then run it using something like this:
 
-java -cp ./net.guma.northstar.horizon-1.0-jar-with-dependencies.jar net.guma.northstar.horizon.
+java -cp target/net.guma.northstar.horizon-1.0-jar-with-dependencies.jar net.guma.northstar.horizon.Horizon
 
 You must have a boot disk image in drive 1 to be able to use the emulator. If no image is mounted when booting, then the emulator will automatically switch to a paused mode until you correct this and reboot, or un-pause manually (with less than useful results).
 
