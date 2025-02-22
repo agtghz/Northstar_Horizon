@@ -88,6 +88,7 @@ public abstract class FloppyDrive {
         int[] diskData = null;
         if ((fileName != null) && (fileName.length() > 0)) {
             try {
+                fileName = fileName.replace('/', File.separatorChar).replace('\\', File.separatorChar);
                 File diskFile = new File(fileName);
                 byte[] diskBytes = Files.readAllBytes(diskFile.toPath());
                 diskData = new int[diskBytes.length];
