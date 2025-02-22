@@ -21,7 +21,7 @@ Included are two boot disk images, NSDOS51S_SS.NSI and NSDOS50D_SS.NSI, one sing
 Also included is a GAMES disk, containing one program, a reworking of the 1970's mainframe text-based Star Trek game, but fully using the ScreenSplitter interface and library package to present all systems, such as long and short range scanners, status report, etc. in individual windows at the same time, all updated automatically each turn. If you mount that disk on unit #2, you can run this program once you are at the North Star DOS prompt by typing the following:
 
 GO BASIC
-LOAD STARTREK,2
+LOAD TREK,2
 RUN
 
 Finally in the Doc folder is a PDF of the original ScreenSplitter manual, a screen capture of the Star Trek game running, and the assembly code for the I/O routines that support the ScreenSplitter.
